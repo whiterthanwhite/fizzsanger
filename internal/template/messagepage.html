@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<document>
+    <head>
+        <title>Fizzsanger</title>
+    </head>
+    <body>
+        <p>Get Chat List</p>
+        <button onClick="getUserChats()">Get Chats</button>
+        <p>Connect to web socket</p>
+        <button onClick="ConnectToChat()">Connect</button>
+        <br>
+        <label>ChatID: </label>
+        <input id="user_chatid" type="text">
+        <br>
+        <label>Message: </label>
+        <input id="user_message" type="text">
+        <br>
+        <label>ReplyMessage: </label>
+        <input id="user_replymessage" type="number">
+        <br>
+        <button onclick="SendMessage()">Send Message</button>
+        <br>
+        <button onclick="CloseSocket()">Close Socket</button>
+
+        <script>
+            let websocket = null;
+
+            function ConnectToChat() {
+                websocket = new WebSocket("ws://localhost:8081/chat");
+
+                websocket.onopen = function(event) {
+                    console.log(websocket.readyState);
+                }
+                websocket.onmessage = function(event) {
+                    console.log(event.data);
+                }
+                websocket.onclose = function(event) {
+                    console.log(event.data)
+                }
+            }
+
+            function SendMessage() {
+                let chatId = document.getElementById("user_chatid").value;
+                let msg = document.getElementById("user_message").value;
+                let replyMessage = document.getElementById("user_replymessage").value;
+                jsonObj = 
+                    {
+                        'chatid': chatId,
+                        'message': msg,
+                        'reply_message': replyMessage
+                    };
+                sendMsg = JSON.stringify(jsonObj);
+                websocket.send(btoa(sendMsg));
+            }
+
+            function CloseSocket() {
+                var code = 1000;
+                websocket.close(code);
+                // var reason = "Simple code";
+                // websocket.close(code, reason);
+                console.log("Websocket Closed");
+            }
+        </script>
+    </body>
+</document>
