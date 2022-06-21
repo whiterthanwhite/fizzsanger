@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v4"
 
 	"github.com/whiterthanwhite/fizzsanger/internal/auth"
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 	"github.com/whiterthanwhite/fizzsanger/internal/helper"
 	"github.com/whiterthanwhite/fizzsanger/internal/hub"
 )
@@ -60,182 +61,176 @@ func GetRegisterPage(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UserRegister(rw http.ResponseWriter, r *http.Request) {
-	log.Println("Request method: ", r.Method)
-	if r.Method != http.MethodPost {
-		http.Error(rw, wrongMethodErr, http.StatusMethodNotAllowed)
-		return
-	}
-	log.Println("Request Content-Type: : ", r.Header.Get("Content-Type"))
-	headContentType := r.Header.Get("Content-Type")
-	if headContentType != "application/json" {
-		http.Error(rw, "Wrong Content-Type", http.StatusBadRequest)
-		return
-	}
+func UserRegister() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		log.Println("UserRegister")
 
-	var err error
-	var rBody []byte
+		log.Println("Request Content-Type: : ", r.Header.Get("Content-Type"))
+		headContentType := r.Header.Get("Content-Type")
+		if headContentType != "application/json" {
+			http.Error(rw, "Wrong Content-Type", http.StatusBadRequest)
+			return
+		}
 
-	if rBody, err = io.ReadAll(r.Body); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	log.Println(string(rBody))
-	if err = r.Body.Close(); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(rBody) == 0 {
-		http.Error(rw, "empty body", http.StatusBadRequest)
-		return
-	}
+		var err error
+		var rBody []byte
 
-	userCredentials := auth.UserCredentials{}
-	if err = json.Unmarshal(rBody, &userCredentials); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	log.Println(userCredentials)
+		if rBody, err = io.ReadAll(r.Body); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Println(string(rBody))
+		if err = r.Body.Close(); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(rBody) == 0 {
+			http.Error(rw, "empty body", http.StatusBadRequest)
+			return
+		}
 
-	// Hash password >>
-	h := sha256.New()
-	if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
-		log.Println(err.Error())
-		http.Error(rw, "Register error", http.StatusInternalServerError)
-		return
-	}
-	passHash := h.Sum(nil)
-	// Hash password <<
+		userCredentials := auth.UserCredentials{}
+		if err = json.Unmarshal(rBody, &userCredentials); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	// database >>
-	conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer conn.Close(r.Context())
+		// Hash password >>
+		h := sha256.New()
+		if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
+			log.Println(err.Error())
+			http.Error(rw, "Register error", http.StatusInternalServerError)
+			return
+		}
+		passHash := h.Sum(nil)
+		// Hash password <<
 
-	rows, err := conn.Query(r.Context(), `SELECT * FROM user_tab WHERE login = $1;`,
-		userCredentials.Login)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
-	}
-	rows.Close()
-	if rows.CommandTag().RowsAffected() > 0 {
-		http.Error(rw, occupiedLoginErr, http.StatusConflict)
-		return
-	}
-
-	var userID string
-	if err = conn.QueryRow(r.Context(), `
-		SELECT userid FROM user_tab ORDER BY userid DESC LIMIT 1;
-	`).Scan(&userID); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if userID == "" {
-		userID = "usr-00001"
-	} else {
-		userID, err = helper.IncStr(userID)
+		// database >>
+		conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	}
+		defer conn.Close(r.Context())
 
-	rows, err = conn.Query(r.Context(), `
-		INSERT INTO user_tab (userid, login, password, creation_datetime)
-		VALUES ($1, $2, $3, $4);`,
-		userID, userCredentials.Login, passHash,
-		time.Now().Format("2006-01-02 15:04:05-0700"))
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	rows.Close()
-	// database <<
+		rows, err := conn.Query(r.Context(), `SELECT * FROM user_tab WHERE login = $1;`,
+			userCredentials.Login)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+		rows.Close()
+		if rows.CommandTag().RowsAffected() > 0 {
+			http.Error(rw, occupiedLoginErr, http.StatusConflict)
+			return
+		}
 
-	rw.WriteHeader(http.StatusOK)
+		var userID string
+		if err = conn.QueryRow(r.Context(), `
+		SELECT userid FROM user_tab ORDER BY userid DESC LIMIT 1;`).Scan(&userID); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if userID == "" {
+			userID = "usr-00001"
+		} else {
+			userID, err = helper.IncStr(userID)
+			if err != nil {
+				http.Error(rw, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		rows, err = conn.Query(r.Context(),
+			`INSERT INTO user_tab (userid, login, password, creation_datetime)
+			VALUES ($1, $2, $3, $4);`, userID, userCredentials.Login, passHash,
+			time.Now().Format("2006-01-02 15:04:05-0700"))
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rows.Close()
+		// database <<
+
+		rw.WriteHeader(http.StatusOK)
+	}
 }
 
-func UserLogin(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(rw, "Wrong request method!", http.StatusMethodNotAllowed)
-		return
-	}
-	if r.Header.Get("Content-Type") != "application/json" {
-		http.Error(rw, "Wrong Context-Type", http.StatusBadRequest)
-		return
-	}
+func UserLogin(conf *config.Conf) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			http.Error(rw, "Wrong Context-Type", http.StatusBadRequest)
+			return
+		}
 
-	var err error
-	var rBody []byte
+		var err error
+		var rBody []byte
 
-	if rBody, err = io.ReadAll(r.Body); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err = r.Body.Close(); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(rBody) == 0 {
-		http.Error(rw, "empty body", http.StatusBadRequest)
-		return
-	}
+		if rBody, err = io.ReadAll(r.Body); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err = r.Body.Close(); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(rBody) == 0 {
+			http.Error(rw, "empty body", http.StatusBadRequest)
+			return
+		}
 
-	userCredentials := auth.UserCredentials{}
-	if err = json.Unmarshal(rBody, &userCredentials); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		userCredentials := auth.UserCredentials{}
+		if err = json.Unmarshal(rBody, &userCredentials); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer conn.Close(r.Context())
+		conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer conn.Close(r.Context())
 
-	var password []byte
-	if err := conn.QueryRow(r.Context(), `SELECT password FROM user_tab WHERE login = $1;`,
-		userCredentials.Login).Scan(&password); err != nil {
-		http.Error(rw, err.Error(), http.StatusUnauthorized)
-		return
-	}
+		var password []byte
+		if err := conn.QueryRow(r.Context(), `SELECT password FROM user_tab WHERE login = $1;`,
+			userCredentials.Login).Scan(&password); err != nil {
+			http.Error(rw, err.Error(), http.StatusUnauthorized)
+			return
+		}
 
-	h := sha256.New()
-	if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
-		log.Println(err.Error())
-		http.Error(rw, "Login error", http.StatusInternalServerError)
-		return
-	}
-	passHash := h.Sum(nil)
+		h := sha256.New()
+		if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
+			log.Println(err.Error())
+			http.Error(rw, "Login error", http.StatusInternalServerError)
+			return
+		}
+		passHash := h.Sum(nil)
 
-	if string(passHash) != string(password) {
-		http.Error(rw, "", http.StatusUnauthorized)
-		return
-	}
+		if string(passHash) != string(password) {
+			http.Error(rw, "Authentification error", http.StatusUnauthorized)
+			return
+		}
 
-	// create token
-	claims := auth.CreateCustomClaims(userCredentials.Login, userCredentials.Password)
-	token, err := auth.CreateToken(claims)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		// create token
+		claims := auth.CreateCustomClaims(userCredentials.Login, conf)
+		token, err := auth.CreateToken(claims, conf)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	// set cookie
-	cookieToken := http.Cookie{
-		Name:     "auth-token",
-		Value:    token,
-		HttpOnly: true,
-	}
-	http.SetCookie(rw, &cookieToken)
+		// set cookie
+		cookieToken := http.Cookie{
+			Name:     "auth-token",
+			Value:    token,
+			HttpOnly: true,
+		}
+		http.SetCookie(rw, &cookieToken)
 
-	rw.WriteHeader(http.StatusOK)
+		rw.WriteHeader(http.StatusOK)
+	}
 }
 
 // mainserver func handlers
@@ -274,7 +269,7 @@ func GetMessengerPage(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ConnectToChat(h *hub.Hub) http.HandlerFunc {
+func ConnectToChat(h *hub.Hub, conf *config.Conf) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		log.Println("ConnectToChat")
 
@@ -284,7 +279,7 @@ func ConnectToChat(h *hub.Hub) http.HandlerFunc {
 			return
 		}
 		claims := auth.MyCustomClaims{}
-		token, err := auth.ParseToken(cookieToken.Value, &claims)
+		token, err := auth.ParseToken(cookieToken.Value, &claims, conf)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return

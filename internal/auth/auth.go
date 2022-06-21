@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt"
+
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 )
 
 type (
@@ -13,17 +16,18 @@ type (
 	}
 
 	MyCustomClaims struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
+		Login string `json:"login"`
 		jwt.StandardClaims
 	}
 )
 
-func CreateToken(claims MyCustomClaims) (string, error) {
-	signingKey := []byte("qwerty")
+func CreateToken(claims MyCustomClaims, conf *config.Conf) (string, error) {
+	if conf == nil {
+		return "", errors.New("empty configuration file")
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	convertedString, err := token.SignedString(signingKey)
+	convertedString, err := token.SignedString(conf.SigningKey)
 	if err != nil {
 		return "", err
 	}
@@ -31,8 +35,8 @@ func CreateToken(claims MyCustomClaims) (string, error) {
 	return convertedString, nil
 }
 
-func ParseToken(token string, claims *MyCustomClaims) (*jwt.Token, error) {
-	newToken, err := jwt.ParseWithClaims(token, claims, myKeyFunc)
+func ParseToken(token string, claims *MyCustomClaims, conf *config.Conf) (*jwt.Token, error) {
+	newToken, err := jwt.ParseWithClaims(token, claims, myKeyFunc(conf))
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +44,22 @@ func ParseToken(token string, claims *MyCustomClaims) (*jwt.Token, error) {
 	return newToken, nil
 }
 
-func CreateCustomClaims(login, password string) MyCustomClaims {
+func CreateCustomClaims(login string, conf *config.Conf) MyCustomClaims {
+	addTime := time.Minute
+	if conf != nil {
+		addTime = conf.TokenExpiresAt
+	}
+
 	return MyCustomClaims{
 		login,
-		password,
 		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(addTime).Unix(),
 		},
 	}
 }
 
-func myKeyFunc(token *jwt.Token) (interface{}, error) {
-	return []byte("qwerty"), nil
+func myKeyFunc(conf *config.Conf) jwt.Keyfunc {
+	return func(t *jwt.Token) (interface{}, error) {
+		return conf.SigningKey, nil
+	}
 }

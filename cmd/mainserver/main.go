@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 	"github.com/whiterthanwhite/fizzsanger/internal/handlers"
 	"github.com/whiterthanwhite/fizzsanger/internal/hub"
 )
@@ -42,6 +43,10 @@ func startServer(parentCtx context.Context, authServer *http.Server) {
 
 func main() {
 	log.Printf("Server start at %s\n", time.Now().String())
+	conf := config.GetConf()
+	if conf == nil {
+		log.Fatal("Server configuration is not setted!")
+	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
@@ -51,7 +56,7 @@ func main() {
 	chiRouter := chi.NewRouter()
 	chiRouter.Route("/", func(cr chi.Router) {
 		cr.Get("/", handlers.GetMessengerPage)
-		cr.Get("/chat", handlers.ConnectToChat(hub))
+		cr.Get("/chat", handlers.ConnectToChat(hub, conf))
 	})
 
 	authServer := &http.Server{

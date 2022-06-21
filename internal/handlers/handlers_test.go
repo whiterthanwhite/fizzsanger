@@ -60,7 +60,7 @@ func TestUserRegister(t *testing.T) {
 			request.Header.Set("Content-Type", "application/json")
 
 			recorder := httptest.NewRecorder()
-			handler := http.HandlerFunc(UserRegister)
+			handler := http.HandlerFunc(UserRegister())
 			handler.ServeHTTP(recorder, request)
 			result := recorder.Result()
 			defer result.Body.Close()
