@@ -138,6 +138,6 @@ type Hub struct {
 
 func CreateHub() *Hub {
 	return &Hub{
-		Clients: make(map[string]*Client, 0),
+		Clients: make(map[string]*Client),
 	}
 }

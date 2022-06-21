@@ -99,7 +99,11 @@ func UserRegister(rw http.ResponseWriter, r *http.Request) {
 
 	// Hash password >>
 	h := sha256.New()
-	h.Write([]byte(userCredentials.Password))
+	if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
+		log.Println(err.Error())
+		http.Error(rw, "Register error", http.StatusInternalServerError)
+		return
+	}
 	passHash := h.Sum(nil)
 	// Hash password <<
 
@@ -203,7 +207,11 @@ func UserLogin(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	h := sha256.New()
-	h.Write([]byte(userCredentials.Password))
+	if _, err := h.Write([]byte(userCredentials.Password)); err != nil {
+		log.Println(err.Error())
+		http.Error(rw, "Login error", http.StatusInternalServerError)
+		return
+	}
 	passHash := h.Sum(nil)
 
 	if string(passHash) != string(password) {
