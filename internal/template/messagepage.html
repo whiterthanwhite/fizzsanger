@@ -21,9 +21,14 @@
         <button onclick="SendMessage()">Send Message</button>
         <br>
         <button onclick="CloseSocket()">Close Socket</button>
+        <br><br>
+        <div>
+            <div id="chat"></div>
+        </div>
 
         <script>
             let websocket = null;
+
 
             function ConnectToChat() {
                 websocket = new WebSocket("ws://localhost:8081/chat");
@@ -33,10 +38,42 @@
                 }
                 websocket.onmessage = function(event) {
                     console.log(event.data);
+                    receivedMsg = atob(event.data);
+
+                    let chatid = '';
+                    let creationDateTime = '';
+                    jsonObj = JSON.parse(receivedMsg, function(k, v) {
+                        console.log(k, v);
+                        switch(k) {
+                            case 'chatid':
+                                chatid = v;
+                                break;
+                            case 'creation_datetime':
+                                creationDateTime = v;
+                                break;
+                        }
+                        if (chatid != '' && creationDateTime != '') {
+                            CreateChatDiv(chatid, creationDateTime);
+                            chatid = '';
+                            creationDateTime = '';
+                        }
+                    });
                 }
                 websocket.onclose = function(event) {
                     console.log(event.data)
                 }
+            }
+
+            function CreateChatDiv(chatid, creationDateTime) {
+                let container = document.getElementById("chat")
+                    let div = document.createElement("div")
+                    let p1 = document.createElement("p")
+                    p1.innerText = chatid;
+                    let p2 = document.createElement("p")
+                    p2.innerText = creationDateTime;
+                    container.appendChild(div)
+                    div.appendChild(p1)
+                    div.appendChild(p2)
             }
 
             function SendMessage() {

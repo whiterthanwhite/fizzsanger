@@ -21,6 +21,7 @@ type Client struct {
 }
 
 func (client *Client) GetMessages() {
+	log.Println(client)
 	defer client.Conn.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -59,8 +60,9 @@ func (client *Client) GetMessages() {
 		if received_message.ChatID == "" {
 			received_message.ChatID, _ = dbconn.GetLastChatID(ctx)
 		}
-		chats, _ := dbconn.GetUserChats(ctx, received_message.Login)
+		chats, _ := dbconn.GetUserChats(ctx, client.Login)
 		if chat, ok = chats[received_message.ChatID]; !ok {
+			log.Println(received_message.ChatID, " exists: ", ok)
 			chat = chathelper.CreateChat(received_message.ChatID, 0, client.Login)
 			dbconn.SaveChat(ctx, chat)
 		}
@@ -73,12 +75,12 @@ func (client *Client) GetMessages() {
 	}
 }
 
-/*func (client *Client) SendMessages(userMsg <-chan []byte) {
-	if err := client.Conn.WriteMessage(websocket.TextMessage, <-client.Message); err != nil {
+func (client *Client) SendMessages(msg []byte) {
+	if err := client.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Println(err.Error())
 		return
 	}
-}*/
+}
 
 func ParseMessage(message []byte) *chathelper.Message {
 	msg := &chathelper.Message{}
@@ -117,6 +119,9 @@ func (client *Client) GetChats() {
 				mc, err := chats.MarshallChats()
 				if err == nil {
 					log.Println(string(mc))
+					dstMsg := make([]byte, base64.StdEncoding.EncodedLen(len(mc)))
+					base64.StdEncoding.Encode(dstMsg, mc)
+					client.SendMessages(dstMsg)
 				}
 			}
 		}

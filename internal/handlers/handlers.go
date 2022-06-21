@@ -292,8 +292,6 @@ func ConnectToChat(h *hub.Hub) http.HandlerFunc {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// defer wsconn.Close()
-
 		client := &hub.Client{
 			Login:   claims.Login,
 			Token:   token,
