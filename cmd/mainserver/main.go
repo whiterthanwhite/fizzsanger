@@ -31,6 +31,15 @@ func ShowHubUsers(parentCtx context.Context, h *hub.Hub) {
 	}
 }
 
+func startServer(parentCtx context.Context, authServer *http.Server) {
+	_, cancel := context.WithCancel(parentCtx)
+	if err := authServer.ListenAndServe(); err != nil {
+		log.Println(err.Error())
+		cancel()
+	}
+	cancel()
+}
+
 func main() {
 	log.Printf("Server start at %s\n", time.Now().String())
 
@@ -50,7 +59,7 @@ func main() {
 		Handler: chiRouter,
 	}
 
-	go authServer.ListenAndServe()
+	go startServer(ctx, authServer)
 	go ShowHubUsers(ctx, hub)
 
 	log.Println("Server started successfully")

@@ -11,6 +11,15 @@ import (
 	"github.com/whiterthanwhite/fizzsanger/internal/handlers"
 )
 
+func StartServer(parentCtx context.Context, authServer *http.Server) {
+	_, cancel := context.WithCancel(parentCtx)
+	if err := authServer.ListenAndServe(); err != nil {
+		log.Println(err.Error())
+		cancel()
+	}
+	cancel()
+}
+
 func main() {
 	log.Printf("Server start at %s\n", time.Now().String())
 	ctx := context.Background()
@@ -27,7 +36,7 @@ func main() {
 		Handler: chiRouter,
 	}
 
-	go authServer.ListenAndServe()
+	go StartServer(ctx, authServer)
 
 	log.Println("Server started successfully")
 	<-ctx.Done()

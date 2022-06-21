@@ -105,24 +105,21 @@ func (client *Client) GetChats() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			userChats, err := conn.GetUserChats(context.Background(), client.Login)
-			if err != nil {
-				log.Println(err.Error())
+	for range ticker.C {
+		userChats, err := conn.GetUserChats(context.Background(), client.Login)
+		if err != nil {
+			log.Println(err.Error())
+		}
+		if userChats != nil {
+			chats := chathelper.Chats{
+				Chats: userChats,
 			}
-			if userChats != nil {
-				chats := chathelper.Chats{
-					Chats: userChats,
-				}
-				mc, err := chats.MarshallChats()
-				if err == nil {
-					log.Println(string(mc))
-					dstMsg := make([]byte, base64.StdEncoding.EncodedLen(len(mc)))
-					base64.StdEncoding.Encode(dstMsg, mc)
-					client.SendMessages(dstMsg)
-				}
+			mc, err := chats.MarshallChats()
+			if err == nil {
+				log.Println(string(mc))
+				dstMsg := make([]byte, base64.StdEncoding.EncodedLen(len(mc)))
+				base64.StdEncoding.Encode(dstMsg, mc)
+				client.SendMessages(dstMsg)
 			}
 		}
 	}

@@ -74,7 +74,7 @@ func UserRegister(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	var err error
-	rBody := make([]byte, 0)
+	var rBody []byte
 
 	if rBody, err = io.ReadAll(r.Body); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -153,7 +153,7 @@ func UserRegister(rw http.ResponseWriter, r *http.Request) {
 	rows.Close()
 	// database <<
 
-	rw.Write([]byte("Registration successful!"))
+	rw.WriteHeader(http.StatusOK)
 }
 
 func UserLogin(rw http.ResponseWriter, r *http.Request) {
@@ -167,7 +167,7 @@ func UserLogin(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	var err error
-	rBody := make([]byte, 0)
+	var rBody []byte
 
 	if rBody, err = io.ReadAll(r.Body); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)

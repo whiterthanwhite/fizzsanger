@@ -66,7 +66,7 @@ func TestUserRegister(t *testing.T) {
 			defer result.Body.Close()
 
 			var err error
-			rBody := make([]byte, 0)
+			var rBody []byte
 
 			if rBody, err = io.ReadAll(recorder.Body); err != nil {
 				t.Error(err.Error())
