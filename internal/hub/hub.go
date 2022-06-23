@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
 	"github.com/whiterthanwhite/fizzsanger/internal/chathelper"
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 	"github.com/whiterthanwhite/fizzsanger/internal/db"
 )
 
@@ -20,7 +21,7 @@ type Client struct {
 	Message chan []byte
 }
 
-func (client *Client) GetMessages() {
+func (client *Client) GetMessages(conf *config.Conf) {
 	log.Println(client)
 	defer client.Conn.Close()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -48,7 +49,7 @@ func (client *Client) GetMessages() {
 			continue
 		}
 
-		dbconn, err := db.CreateConn(ctx)
+		dbconn, err := db.CreateConn(ctx, conf)
 		if err != nil {
 			log.Println(err.Error())
 			break
@@ -91,11 +92,11 @@ func ParseMessage(message []byte) *chathelper.Message {
 	return msg
 }
 
-func (client *Client) GetChats() {
+func (client *Client) GetChats(conf *config.Conf) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	conn, err := db.CreateConn(ctx)
+	conn, err := db.CreateConn(ctx, conf)
 	if err != nil {
 		log.Println(err.Error())
 		return

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v4"
 
 	"github.com/whiterthanwhite/fizzsanger/internal/chathelper"
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 	"github.com/whiterthanwhite/fizzsanger/internal/helper"
 )
 
@@ -15,8 +16,8 @@ type Conn struct {
 	conn *pgx.Conn
 }
 
-func CreateConn(ctx context.Context) (*Conn, error) {
-	conn, err := pgx.Connect(ctx, "postgres://localhost:5432/fizzsangerdb")
+func CreateConn(ctx context.Context, conf *config.Conf) (*Conn, error) {
+	conn, err := pgx.Connect(ctx, conf.DBAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (conn *Conn) GetLastChatID(parentCtx context.Context) (string, error) {
 	var err error
 	if err = conn.conn.QueryRow(ctx, `select chatid from chat order by chatid desc limit 1;`).Scan(&chatid); err != nil {
 		log.Println(err.Error())
-		return "chat-00001", nil
+		return "chat-00000", nil
 	}
 
 	if chatid, err = helper.IncStr(chatid); err != nil {
@@ -107,4 +108,49 @@ func (conn *Conn) SaveUserMessage(parentCtx context.Context, chat chathelper.Cha
 		log.Println(err.Error())
 		return
 	}
+}
+
+func (conn *Conn) GetLastUserID(parentCtx context.Context) string {
+	ctx, cancel := context.WithTimeout(parentCtx, time.Second)
+	defer cancel()
+
+	var userid string
+	if err := conn.conn.QueryRow(ctx, `select userid from user_tab order by userid desc limit 1;`).Scan(&userid); err != nil {
+		log.Println(err.Error())
+		return `user-00001`
+	}
+
+	return userid
+}
+
+func (conn *Conn) IsLoginExist(parentCtx context.Context, login string) bool {
+	ctx, cancel := context.WithTimeout(parentCtx, time.Second)
+	defer cancel()
+
+	ct, err := conn.conn.Exec(ctx, `select * from user_tab where login = $1 limit 1;`, login)
+	if err != nil {
+		log.Println(err.Error())
+		return false
+	}
+
+	if ct.RowsAffected() == 0 {
+		return false
+	}
+
+	return true
+}
+
+func (conn *Conn) SaveUser(parentCtx context.Context, userid, login string, pass []byte) bool {
+	ctx, cancel := context.WithTimeout(parentCtx, time.Second)
+	defer cancel()
+
+	if err := conn.conn.QueryRow(ctx,
+		`insert into user_tab (userid, login, password, creation_datetime) values ($1, $2, $3, $4)`,
+		userid, login, pass, time.Now().Format("2006-01-02 15:04:05-0700")).
+		Scan(); err != nil {
+		log.Println(err.Error())
+		return false
+	}
+
+	return true
 }

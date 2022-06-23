@@ -16,6 +16,7 @@ import (
 
 	"github.com/whiterthanwhite/fizzsanger/internal/auth"
 	"github.com/whiterthanwhite/fizzsanger/internal/config"
+	"github.com/whiterthanwhite/fizzsanger/internal/db"
 	"github.com/whiterthanwhite/fizzsanger/internal/helper"
 	"github.com/whiterthanwhite/fizzsanger/internal/hub"
 )
@@ -61,7 +62,7 @@ func GetRegisterPage(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UserRegister() http.HandlerFunc {
+func UserRegister(conf *config.Conf) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		log.Println("UserRegister")
 
@@ -106,51 +107,29 @@ func UserRegister() http.HandlerFunc {
 		// Hash password <<
 
 		// database >>
-		conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
+		conn, err := db.CreateConn(r.Context(), conf)
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			http.Error(rw, "", http.StatusInternalServerError)
 			return
 		}
 		defer conn.Close(r.Context())
 
-		rows, err := conn.Query(r.Context(), `SELECT * FROM user_tab WHERE login = $1;`,
-			userCredentials.Login)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusBadRequest)
-			return
-		}
-		rows.Close()
-		if rows.CommandTag().RowsAffected() > 0 {
+		if conn.IsLoginExist(r.Context(), userCredentials.Login) {
 			http.Error(rw, occupiedLoginErr, http.StatusConflict)
 			return
 		}
 
-		var userID string
-		if err = conn.QueryRow(r.Context(), `
-		SELECT userid FROM user_tab ORDER BY userid DESC LIMIT 1;`).Scan(&userID); err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if userID == "" {
-			userID = "usr-00001"
-		} else {
-			userID, err = helper.IncStr(userID)
-			if err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		rows, err = conn.Query(r.Context(),
-			`INSERT INTO user_tab (userid, login, password, creation_datetime)
-			VALUES ($1, $2, $3, $4);`, userID, userCredentials.Login, passHash,
-			time.Now().Format("2006-01-02 15:04:05-0700"))
+		userid := conn.GetLastUserID(r.Context())
+		userid, err = helper.IncStr(userid)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		rows.Close()
+
+		if !conn.SaveUser(r.Context(), userid, userCredentials.Login, passHash) {
+			http.Error(rw, "", http.StatusInternalServerError)
+			return
+		}
 		// database <<
 
 		rw.WriteHeader(http.StatusOK)
@@ -306,8 +285,8 @@ func ConnectToChat(h *hub.Hub, conf *config.Conf) http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		go client.GetChats()
-		go client.GetMessages()
+		go client.GetChats(conf)
+		go client.GetMessages(conf)
 
 		<-ctx.Done()
 		log.Println("End ConnectToChat")

@@ -10,17 +10,20 @@ import (
 const (
 	signingKeyEnv  string = "SIGNING_KEY"
 	tokenExpiresAt string = "TOKEN_EXPIRES_AT"
+	dbAdress       string = "DB_ADDRESS"
 )
 
 type Conf struct {
 	SigningKey     []byte
 	TokenExpiresAt time.Duration
+	DBAddress      string
 }
 
 func GetConf() *Conf {
 	values := make(map[string]string)
 	values[signingKeyEnv] = ""
 	values[tokenExpiresAt] = ""
+	values[dbAdress] = ""
 	for k := range values {
 		var ok bool
 		if values[k], ok = getEnvValue(k); !ok {
@@ -37,6 +40,7 @@ func GetConf() *Conf {
 	return &Conf{
 		SigningKey:     []byte(values[signingKeyEnv]),
 		TokenExpiresAt: time.Minute * time.Duration(d),
+		DBAddress:      values[dbAdress],
 	}
 }
 

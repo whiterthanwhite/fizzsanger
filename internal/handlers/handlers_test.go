@@ -8,9 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/whiterthanwhite/fizzsanger/internal/config"
 )
 
 func TestUserRegister(t *testing.T) {
+	conf := config.GetConf()
+
 	type (
 		reqParams struct {
 			method string
@@ -60,7 +63,7 @@ func TestUserRegister(t *testing.T) {
 			request.Header.Set("Content-Type", "application/json")
 
 			recorder := httptest.NewRecorder()
-			handler := http.HandlerFunc(UserRegister())
+			handler := http.HandlerFunc(UserRegister(conf))
 			handler.ServeHTTP(recorder, request)
 			result := recorder.Result()
 			defer result.Body.Close()

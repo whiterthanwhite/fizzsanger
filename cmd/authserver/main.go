@@ -34,7 +34,7 @@ func main() {
 	chiRouter := chi.NewRouter()
 	chiRouter.Route("/", func(cr chi.Router) {
 		cr.Get("/", handlers.GetRegisterPage)
-		cr.Post("/register", handlers.UserRegister())
+		cr.Post("/register", handlers.UserRegister(conf))
 		cr.Post("/login", handlers.UserLogin(conf))
 	})
 
