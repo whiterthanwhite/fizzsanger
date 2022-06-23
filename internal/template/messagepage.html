@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<document>
+    <head>
+        <title>Fizzsanger</title>
+    </head>
+    <body>
+        <p>Get Chat List</p>
+        <button onClick="getUserChats()">Get Chats</button>
+        <p>Connect to web socket</p>
+        <button onClick="ConnectToChat()">Connect</button>
+        <br>
+        <label>ChatID: </label>
+        <input id="user_chatid" type="text">
+        <br>
+        <label>Message: </label>
+        <input id="user_message" type="text">
+        <br>
+        <label>ReplyMessage: </label>
+        <input id="user_replymessage" type="number">
+        <br>
+        <button onclick="SendMessage()">Send Message</button>
+        <br>
+        <button onclick="CloseSocket()">Close Socket</button>
+        <br><br>
+        <div>
+            <div id="chat"></div>
+        </div>
+
+        <script>
+            let websocket = null;
+
+
+            function ConnectToChat() {
+                websocket = new WebSocket("ws://localhost:8081/chat");
+
+                websocket.onopen = function(event) {
+                    console.log(websocket.readyState);
+                }
+                websocket.onmessage = function(event) {
+                    console.log(event.data);
+                    receivedMsg = atob(event.data);
+
+                    let chatid = '';
+                    let creationDateTime = '';
+                    jsonObj = JSON.parse(receivedMsg, function(k, v) {
+                        console.log(k, v);
+                        switch(k) {
+                            case 'chatid':
+                                chatid = v;
+                                break;
+                            case 'creation_datetime':
+                                creationDateTime = v;
+                                break;
+                        }
+                        if (chatid != '' && creationDateTime != '') {
+                            CreateChatDiv(chatid, creationDateTime);
+                            chatid = '';
+                            creationDateTime = '';
+                        }
+                    });
+                }
+                websocket.onclose = function(event) {
+                    console.log(event.data)
+                }
+            }
+
+            function CreateChatDiv(chatid, creationDateTime) {
+                let container = document.getElementById("chat")
+                    let div = document.createElement("div")
+                    let p1 = document.createElement("p")
+                    p1.innerText = chatid;
+                    let p2 = document.createElement("p")
+                    p2.innerText = creationDateTime;
+                    container.appendChild(div)
+                    div.appendChild(p1)
+                    div.appendChild(p2)
+            }
+
+            function SendMessage() {
+                let chatId = document.getElementById("user_chatid").value;
+                let msg = document.getElementById("user_message").value;
+                let replyMessage = document.getElementById("user_replymessage").value;
+                jsonObj = 
+                    {
+                        'chatid': chatId,
+                        'message': msg,
+                        'reply_message': replyMessage
+                    };
+                sendMsg = JSON.stringify(jsonObj);
+                websocket.send(btoa(sendMsg));
+            }
+
+            function CloseSocket() {
+                var code = 1000;
+                websocket.close(code);
+                // var reason = "Simple code";
+                // websocket.close(code, reason);
+                console.log("Websocket Closed");
+            }
+        </script>
+    </body>
+</document>
