@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v4"
 
 	"github.com/whiterthanwhite/fizzsanger/internal/auth"
 	"github.com/whiterthanwhite/fizzsanger/internal/config"
@@ -165,17 +164,16 @@ func UserLogin(conf *config.Conf) http.HandlerFunc {
 			return
 		}
 
-		conn, err := pgx.Connect(r.Context(), "postgres://localhost:5432/fizzsangerdb")
+		conn, err := db.CreateConn(r.Context(), conf)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer conn.Close(r.Context())
 
-		var password []byte
-		if err := conn.QueryRow(r.Context(), `SELECT password FROM user_tab WHERE login = $1;`,
-			userCredentials.Login).Scan(&password); err != nil {
-			http.Error(rw, err.Error(), http.StatusUnauthorized)
+		password := conn.GetUserPassword(r.Context(), userCredentials.Login)
+		if password == nil {
+			http.Error(rw, "", http.StatusUnauthorized)
 			return
 		}
 

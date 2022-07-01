@@ -154,3 +154,16 @@ func (conn *Conn) SaveUser(parentCtx context.Context, userid, login string, pass
 
 	return true
 }
+
+func (conn *Conn) GetUserPassword(parentCtx context.Context, login string) []byte {
+	ctx, cancel := context.WithTimeout(parentCtx, time.Second)
+	defer cancel()
+
+	var pass []byte
+	if err := conn.conn.QueryRow(ctx, `select password from user_tab where login = $1;`, login).Scan(&pass); err != nil {
+		log.Println(err.Error())
+		return nil
+	}
+
+	return pass
+}
